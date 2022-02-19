@@ -1,25 +1,34 @@
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import React, { useContext, useEffect, useState } from 'react';
-import { Redirect, Route, Routes, useNavigate } from 'react-router-dom';
+import { useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Button, Card } from 'reactstrap';
+import App from '../App';
+import Result from './Result'
 import userQuizContext from '../Context/userQuizContext';
-import App from '../App'
-import { toast } from 'react-toastify';
-import './Quiz.css'
+import './Quiz.css';
 
 export default function Quiz() {
 
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [quizData, setQuizData] = useState({});
     const [currentOptions, setCurrentOptions] = useState([]);
-    const scores = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+    const [scores, setScores] = useState([-1, -1, -1, -1, -1, -1, -1, -1, -1, -1])
+    // const scores = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
     const context = useContext(userQuizContext);
     const amount = 10;
     const category = context.user.triviaCategory;
     const difficulty = context.user.difficulty;
+
     const navigate = useNavigate()
+
+    useEffect(() => { shuffleOptions() }, [quizData])
+
+    useEffect(() => { fetchData() }, [])
+
+    useEffect(() => { shuffleOptions() }, [currentQuestion])
 
     async function fetchData() {
         // You can await here
@@ -29,13 +38,6 @@ export default function Quiz() {
 
         })
     }
-    useEffect(() => {
-        shuffleOptions()
-    }, [quizData])
-    
-    useEffect( ()=>{fetchData()}, [])
-
-useEffect( ()=>{shuffleOptions()}, [currentQuestion])
     // fetchQuiz()
     async function fetchQuiz() {
         console.log('Category = ', category, ' Diff = ', difficulty);
@@ -54,7 +56,7 @@ useEffect( ()=>{shuffleOptions()}, [currentQuestion])
             }
             return data;
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
     }
 
@@ -63,27 +65,30 @@ useEffect( ()=>{shuffleOptions()}, [currentQuestion])
             && quizData.constructor === Object)
             return;
 
-        // let results = quizData.results[0]
-        // console.log(results);
         let array = [];
         array.push(quizData.results[currentQuestion]?.correct_answer);
         array.push(quizData.results[currentQuestion]?.incorrect_answers?.at(0));
         array.push(quizData.results[currentQuestion]?.incorrect_answers?.at(1));
         array.push(quizData.results[currentQuestion]?.incorrect_answers?.at(2));
 
-        // console.log('array = ', array);
+        let keys = 1;
         let shuffle = []
         let random = (Math.random() * 3).toFixed();
         while (array.length > 0) {
             if (array[random] !== undefined) {
 
-                shuffle.push(decodeString(array[random]));
+                shuffle.push(
+                    {
+                        text: decodeString(array[random]),
+                        key: keys++,
+                        style: ''
+                    }
+                )
                 array.splice(random, 1);
             }
             random = (Math.random() * (array.length - 1)).toFixed();
         }
         setCurrentOptions(shuffle)
-        console.log('Current Options = ', shuffle)
 
     }
 
@@ -92,70 +97,126 @@ useEffect( ()=>{shuffleOptions()}, [currentQuestion])
         return parser.parseFromString(`<!doctype html><body>${string}`, 'text/html').body.textContent;
     }
 
-    const evaluateAnswer = (ans) => {
+    async function evaluateAnswer(e) {
+        console.log('currentQuestion = ', currentQuestion);
+        console.log('scores = ', scores);
+        const ans = e.target.textContent;
 
-    
         if (scores[currentQuestion] !== -1)
             return toast.info('Already Answered')
 
         if (ans === quizData?.results[currentQuestion]?.correct_answer) {
-            scores[currentQuestion] = 1   
-            toast.success('Correct Answer')
+            let s = [...scores]
+            s[currentQuestion] = 1
+            setScores(s)
+            // toast.success('Correct Answer', {
+            //     position: "top-right",
+            //     autoClose: 1000,
+            //     hideProgressBar: false,
+            //     closeOnClick: true,
+            //     pauseOnHover: true,
+            //     draggable: true,
+            //     progress: undefined,
+            // })
+            let cop = [...currentOptions];
+            let i = 0;
+            while (cop[i].text !== ans) { i++; }
+            cop[i].style = 'correct_answer'
+
+            setCurrentOptions(cop);
         }
-        else{
-            scores[currentQuestion] = 0 
-            toast.error('Wrong Answer !')
+        else {
+            let s = [...scores]
+            s[currentQuestion] = 0
+            setScores(s)
+            // toast.error('Wrong Answer', {
+            //     position: "top-right",
+            //     autoClose: 1000,
+            //     hideProgressBar: false,
+            //     closeOnClick: true,
+            //     pauseOnHover: true,
+            //     draggable: true,
+            //     progress: undefined,
+            // })
+            let cop = [...currentOptions];
+            let i = 0;
+            while (cop[i].text !== ans) { i++; }
+            cop[i].style = 'incorrect_answer'
+
+            i = 0;
+            while (cop[i].text !== quizData?.results[currentQuestion]?.correct_answer) { i++; }
+            cop[i].style = 'correct_answer'
+
+            setCurrentOptions(cop);
         }
     }
-    const nextQuestion = ()=>{
+
+    const nextQuestion = () => {
         if (scores[currentQuestion] === -1)
-        return toast.warn('Not Answered', {
-            position: "top-right",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
+            return toast.warn('Not Answered', {
+                position: "top-right",
+                autoClose: 1000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                progress: undefined,
             });
-        else{
-            setCurrentQuestion(currentQuestion+1)
+        else if (currentQuestion === 9) {
+            let score = 0;
+            scores.map(item => score += item)
+            context.user.score = score
+        console.log(context.user)
+        navigate('/result')
+        }
+        else {
+            setCurrentQuestion(currentQuestion + 1)
         }
     }
+
+
     return (
         <main>
 
-
-
-            
             {/* <Button onClick={() => fetchData()}>Start</Button> */}
             {
                 quizData.response_code === 0 ? (
                     <>
                         <h2> {decodeString(quizData?.results[currentQuestion]?.question)} </h2>
+                        {console.table(currentOptions)}
                         {
-                            currentOptions.map((item, index) => (
-                                <Card key={index} 
-                                className='p-2 m-2 mycard' 
-                                onClick={(e) => evaluateAnswer(e.target.textContent)}
-                                style={{cursor:'pointer'}}
-                                >{item}</Card>
-                            ))
+
+                            <>
+                                <Card key={currentOptions[0]?.key}
+                                    className={`p-2 m-2 mycard ${currentOptions[0]?.style}`}
+                                    onClick={(e) => evaluateAnswer(e)}
+                                >{currentOptions[0]?.text}</Card>
+
+                                <Card key={currentOptions[1]?.key}
+                                    className={`p-2 m-2 mycard ${currentOptions[1]?.style}`}
+                                    onClick={(e) => evaluateAnswer(e)}
+                                >{currentOptions[1]?.text}</Card>
+
+                                <Card key={currentOptions[2]?.key}
+                                    className={`p-2 m-2 mycard ${currentOptions[2]?.style}`}
+                                    onClick={(e) => evaluateAnswer(e)}
+                                >{currentOptions[2]?.text}</Card>
+
+                                <Card key={currentOptions[3]?.key}
+                                    className={`p-2 m-2 mycard ${currentOptions[3]?.style}`}
+                                    onClick={(e) => evaluateAnswer(e)}
+                                >{currentOptions[3]?.text}</Card>
+                            </>
                         }
-                        <Button onClick={ ()=> nextQuestion()}>Next</Button>
+                        <Button onClick={() => nextQuestion()}>Next</Button>
+
+
+
                     </>
                 ) : (
                     <h2></h2>
                 )
-
-
-
             }
-
-
-
-
-
         </main>
     )
 }

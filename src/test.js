@@ -1,2 +1,3 @@
-let c = (Math.random() * 24 + 9).toFixed();
-console.log(c);
+const scores = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+scores[0] = 0
+console.log(scores);

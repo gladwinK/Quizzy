@@ -10,6 +10,7 @@ import './index.css';
 import Quiz, { Quizzy } from './Components/Quiz';
 import userQuizContext from './Context/userQuizContext'
 import { Container } from 'reactstrap';
+import Result from './Components/Result';
 const Index = () => {
   const [user, setUser] = useState(null)
   return (
@@ -34,6 +35,7 @@ const Index = () => {
           <Routes>
             <Route path='/' element={<App />} />
             <Route path='/quiz' element={<Quizzy />} />
+            <Route path='/result' element={<Result />} />
           </Routes>
         </userQuizContext.Provider>
       </BrowserRouter>
